@@ -1,132 +1,158 @@
 import os
-import torchaudio
-import torch
-import noisereduce as nr
+import numpy as np
 import librosa
+import noisereduce as nr
+import soundfile as sf
+from scipy.signal import butter, filtfilt
 import kagglehub
 
-# DOWNLOAD RAVDESS DATASET FROM KAGGLE
-path = kagglehub.dataset_download("uwrfkaggler/ravdess-emotional-speech-audio")
-print("Path to dataset files:", path)
-# Path to dataset files: C:\Users\Hessie\.cache\kagglehub\datasets\uwrfkaggler\ravdess-emotional-speech-audio\versions\1
+# Optional: download RAVDESS once via kagglehub
+# path = kagglehub.dataset_download("uwrfkaggler/ravdess-emotional-speech-audio")
+# print("Path to dataset files:", path)
 
-# UNSQUEEZE FOR CORRECT DIMENSIONS
-def unsqueeze_audio(audio: torch.Tensor):
-    if audio.dim() == 1:
-        audio = audio.unsqueeze(0)
-    return audio
-
-# 1. RESAMPLING (Unify Sample Rates)
-def resample(audio: torch.Tensor, samp_rate: int, new_samp_rate: int=16000):
-    resampler = torchaudio.transforms.Resample(samp_rate, new_samp_rate)
-    samp_rate_16 = resampler(audio)
-    return samp_rate_16
-
-# 2. STEREO TO MONO
-def stereo_to_mono(audio: torch.Tensor):
-    mono_audio = torch.mean(audio, dim=0, keepdim=True)
-    return mono_audio
-
-# 3. ROOT MEAN SQUARE VOLUME NORMALIZATION (Make Loudness More Consistent)
-def normalize(audio: torch.Tensor, target_rms: float=0.1):
-    rms = torch.sqrt(torch.mean(audio**2, dim=1, keepdim=True))
-    normalized_audio = audio * (target_rms/(rms+1e-8))
-    return normalized_audio
-
-# 4. TRIM LEADING/TRAILING SILENCE
-def trim_silence(audio: torch.Tensor, threshold: float=0.01):
-    val_mask = (audio.abs() > threshold).any(dim=0)
-    if val_mask.any():
-        start_sound = val_mask.nonzero(as_tuple=True)[0][0]
-        end_sound = val_mask.nonzero(as_tuple=True)[0][-1] + 1
-        trimmed_audio = audio[:,start_sound:end_sound]
-    else:
-        trimmed_audio = audio
-    return trimmed_audio
-
-# 5. NOISE REDUCTION (Reduce Background Noise)
-def noise_reduce(audio: torch.Tensor, rate: int):
-    reduced_noise = nr.reduce_noise(y = audio.numpy(), sr=rate, n_std_thresh_stationary=1,stationary=True)
-    return torch.from_numpy(reduced_noise)
-
-# 6. PREEMPHASIS FILTERING (Make Quieter Sounds Stronger)
-def preemphasis(audio: torch.Tensor, alpha:float=0.97):
-    emphasize = torchaudio.transforms.Preemphasis(coeff=alpha)
-    preemph_audio = emphasize(audio)
-    return preemph_audio
-
-# 7. VOICE ACTIVITY DETECTION (Detect Speech, Remove Everything Else)
-def voice_act_detect(audio: torch.Tensor, rate: int):
-    vad = torchaudio.transforms.Vad(sample_rate=rate)
-    speech_segments = vad(audio)
-    return speech_segments
+TARGET_SR = 16000
 
 
-# 8. FREQUENCY FILTERING
-def frequency_filter(audio: torch.Tensor, rate: int):
-    highpassed = torchaudio.functional.highpass_biquad(audio, sample_rate=rate, cutoff_freq=80.0)
-    lowpassed = torchaudio.functional.lowpass_biquad(highpassed, sample_rate=rate, cutoff_freq=8000.0)
-    return lowpassed
+# 1. LOAD + RESAMPLE + MONO
+def load_audio(path: str, target_sr: int = TARGET_SR):
+    """
+    Load audio, convert to mono, and resample to target_sr.
+    """
+    # sr=None = keep original; we'll resample ourselves
+    y, sr = librosa.load(path, sr=None, mono=False)
 
-# 9. DATA AUGMENTATION (Add Background Noise, Change Pitch, Speed, etc. to Mimic Real World Recordings)
+    # If stereo -> average channels to mono
+    if y.ndim == 2:
+        y = np.mean(y, axis=0)
+
+    # Resample if needed
+    if sr != target_sr:
+        y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
+        sr = target_sr
+
+    return y, sr
 
 
-# 10. FEATURE EXTRACTION (ex. MFCCs, Mel Spectrograms)
+# 2. RMS NORMALIZATION
+def rms_normalize(y: np.ndarray, target_rms: float = 0.1):
+    """
+    Normalize signal to a target RMS level.
+    """
+    rms = np.sqrt(np.mean(y ** 2))
+    if rms < 1e-8:
+        return y
+    return y * (target_rms / rms)
 
 
-# RUN PIPELINE
-def pipeline(audio_path, target_samp_rate: int=16000):
-    # LOAD AUDIO
-    audio_lib, samp_rate = librosa.load(audio_path, sr=None, mono=False)
-    audio = torch.from_numpy(audio_lib)
+# 3. TRIM LEADING/TRAILING SILENCE
+def trim_silence(y: np.ndarray, top_db: float = 30.0):
+    """
+    Trim leading and trailing silence using librosa.
+    """
+    trimmed, _ = librosa.effects.trim(y, top_db=top_db)
+    return trimmed
 
-    # UNSQUEEZE
-    audio = unsqueeze_audio(audio)
-    print(audio_path, audio.shape)
 
-    # RESAMPLE
-    resampled = resample(audio, samp_rate, target_samp_rate)
-    # print(resampled.shape)
+# 4. NOISE REDUCTION
+def noise_reduce(y: np.ndarray, sr: int):
+    """
+    Reduce stationary background noise.
+    """
+    return nr.reduce_noise(
+        y=y,
+        sr=sr,
+        n_std_thresh_stationary=1.0,
+        stationary=True
+    )
 
-    # MAKE MONO
-    mono_audio = stereo_to_mono(resampled)
-    # print(mono_audio.shape)
 
-    # NORMALIZE
-    normalized_audio = normalize(mono_audio)
-    # print(normalized_audio.shape)
+# 5. PREEMPHASIS FILTERING
+def preemphasis(y: np.ndarray, alpha: float = 0.97):
+    """
+    Apply pre-emphasis filter: y[n] - alpha * y[n-1]
+    """
+    # Simple difference equation
+    return np.append(y[0], y[1:] - alpha * y[:-1])
 
-    # TRIM SILENCE
-    trimmed_audio = trim_silence(normalized_audio)
-    # print(trimmed_audio.shape)
 
-    # NOISE REDUCTION
-    noise_reduced_audio = noise_reduce(trimmed_audio, target_samp_rate)
-    # print(noise_reduced_audio.shape)
+# 6. FREQUENCY FILTERING (band-pass 80Hz–8000Hz)
 
-    # PREEMPHASIS
-    preemph_audio = preemphasis(noise_reduced_audio)
-    # print(preemph_audio.shape)
+def bandpass_filter(
+    y: np.ndarray,
+    sr: int,
+    lowcut: float = 80.0,
+    highcut: float = None,
+    order: int = 4,
+):
+    """
+    Apply a Butterworth band-pass filter.
+    Ensures 0 < Wn < 1 for scipy.signal.butter.
+    """
+    nyq = 0.5 * sr
 
-    # # VOICE ACTIVITY DETECTION
-    # vad_audio = voice_act_detect(preemph_audio, target_samp_rate)
-    # # print(vad_audio.shape)
+    # If no highcut given, pick something safely below Nyquist
+    if highcut is None:
+        highcut = 0.45 * sr  # e.g., 0.45 * 16000 = 7200 Hz
 
-    # FREQUENCY FILTERING
-    filtered_audio = frequency_filter(preemph_audio, target_samp_rate)
-    print(audio_path, filtered_audio.shape)
+    # Normalize
+    low = lowcut / nyq
+    high = highcut / nyq
 
-    # RETURN
-    return filtered_audio
+    # Clamp to (0, 1)
+    low = max(low, 1e-5)
+    high = min(high, 0.999)
+
+    # Make sure low < high
+    if not (0 < low < high < 1):
+        raise ValueError(f"Invalid bandpass frequencies: low={low}, high={high}, sr={sr}")
+
+    b, a = butter(order, [low, high], btype="band")
+    return filtfilt(b, a, y)
+
+
+# PIPELINE
+def pipeline(audio_path: str, target_sr: int = TARGET_SR) -> tuple[np.ndarray, int]:
+    # 1) Load + mono + resample
+    y, sr = load_audio(audio_path, target_sr)
+
+    # 2) RMS normalize
+    y = rms_normalize(y)
+
+    # 3) Trim silence
+    y = trim_silence(y)
+
+    # 4) Noise reduction
+    y = noise_reduce(y, sr)
+
+    # 5) Pre-emphasis
+    y = preemphasis(y)
+
+    # 6) Band-pass filter
+    y = bandpass_filter(y, sr)
+
+    return y, sr
+
 
 def main():
-    for file in os.listdir("backend/raw"):
-        target_samp_rate = 16000
-        path = os.path.join("backend/raw", file)
-        processed = pipeline(path, target_samp_rate)
+    raw_dir = "backend/1"
+    processed_dir = "backend/processed"
+    os.makedirs(processed_dir, exist_ok=True)
 
-        # SAVE
-        print(processed.shape)
-        torchaudio.save(os.path.join("backend/processed", file), processed, target_samp_rate)
+    for root, dirs, files in os.walk(raw_dir):
+        for file in files:
+            if not file.lower().endswith(".wav"):
+                continue
 
-main()
+            in_path = os.path.join(root, file)
+            print("Processing:", in_path)
+
+            y_proc, sr = pipeline(in_path, TARGET_SR)
+
+            # Output filename
+            out_path = os.path.join(processed_dir, file)
+            sf.write(out_path, y_proc, sr)
+            print(f"Processed: {in_path} -> {out_path}, length: {len(y_proc)/sr:.2f}s")
+
+
+if __name__ == "__main__":
+    main()
