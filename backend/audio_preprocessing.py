@@ -19,19 +19,17 @@ def unsqueeze_audio(audio: torch.Tensor):
 # 1. RESAMPLING (Unify Sample Rates)
 def resample(audio: torch.Tensor, samp_rate: int, new_samp_rate: int=16000):
     resampler = torchaudio.transforms.Resample(samp_rate, new_samp_rate)
-    samp_rate_16 = resampler(audio)
-    return samp_rate_16
+    return resampler(audio)
 
 # 2. STEREO TO MONO
 def stereo_to_mono(audio: torch.Tensor):
-    mono_audio = torch.mean(audio, dim=0, keepdim=True)
-    return mono_audio
+    return torch.mean(audio, dim=0, keepdim=True)
 
 # 3. ROOT MEAN SQUARE VOLUME NORMALIZATION (Make Loudness More Consistent)
 def normalize(audio: torch.Tensor, target_rms: float=0.1):
     rms = torch.sqrt(torch.mean(audio**2, dim=1, keepdim=True))
-    normalized_audio = audio * (target_rms/(rms+1e-8))
-    return normalized_audio
+    return audio * (target_rms/(rms+1e-8))
+    
 
 # 4. TRIM LEADING/TRAILING SILENCE
 def trim_silence(audio: torch.Tensor, threshold: float=0.01):
@@ -52,21 +50,17 @@ def noise_reduce(audio: torch.Tensor, rate: int):
 # 6. PREEMPHASIS FILTERING (Make Quieter Sounds Stronger)
 def preemphasis(audio: torch.Tensor, alpha:float=0.97):
     emphasize = torchaudio.transforms.Preemphasis(coeff=alpha)
-    preemph_audio = emphasize(audio)
-    return preemph_audio
+    return emphasize(audio)
 
 # 7. VOICE ACTIVITY DETECTION (Detect Speech, Remove Everything Else)
 def voice_act_detect(audio: torch.Tensor, rate: int):
     vad = torchaudio.transforms.Vad(sample_rate=rate)
-    speech_segments = vad(audio)
-    return speech_segments
-
+    return vad(audio)
 
 # 8. FREQUENCY FILTERING
 def frequency_filter(audio: torch.Tensor, rate: int):
     highpassed = torchaudio.functional.highpass_biquad(audio, sample_rate=rate, cutoff_freq=80.0)
-    lowpassed = torchaudio.functional.lowpass_biquad(highpassed, sample_rate=rate, cutoff_freq=8000.0)
-    return lowpassed
+    return torchaudio.functional.lowpass_biquad(highpassed, sample_rate=rate, cutoff_freq=8000.0)
 
 # 9. DATA AUGMENTATION (Add Background Noise, Change Pitch, Speed, etc. to Mimic Real World Recordings)
 
@@ -129,4 +123,5 @@ def main():
         print(processed.shape)
         torchaudio.save(os.path.join("backend/processed", file), processed, target_samp_rate)
 
-main()
+if __name__ == "__main__":
+    main()
