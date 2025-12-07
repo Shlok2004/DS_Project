@@ -2,7 +2,7 @@ import json
 import torchaudio
 import whisper
 import os
-import audio_preprocessing
+import agent_preprocessing
 from langchain_mistralai import ChatMistralAI
 from langchain.agents import create_agent
 from langchain.tools import tool
@@ -13,7 +13,7 @@ load_dotenv()
 print("MISTRAL API Key Exists:", getenv("MISTRAL_API_KEY"))
 
 # APPLY PREPROCESSING
-processed_audio = audio_preprocessing.pipeline("backend/sample.mp3")
+processed_audio = agent_preprocessing.pipeline("backend/sample.mp3")
 torchaudio.save(os.path.join("backend/agent_outputs", "processed.wav"), processed_audio, 16000)
 
 # TRANSCRIBE AUDIO TOOL
