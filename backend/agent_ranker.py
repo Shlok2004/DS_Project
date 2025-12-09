@@ -12,17 +12,13 @@ from dotenv import load_dotenv
 load_dotenv()
 print("MISTRAL API Key Exists:", getenv("MISTRAL_API_KEY"))
 
-# APPLY PREPROCESSING
-processed_audio = agent_preprocessing.pipeline("backend/sample.mp3")
-torchaudio.save(os.path.join("backend/agent_outputs", "processed.wav"), processed_audio, 16000)
-
 # TRANSCRIBE AUDIO TOOL
 transcriber = whisper.load_model("base")
 
 @tool
 def get_transcription():
     """Transcribe audio and return text"""
-    result = transcriber.transcribe("backend/agent_outputs/processed.wav")
+    result = transcriber.transcribe("agent_outputs/processed.wav")
     return result['text']
 
 full_transcript = ""
@@ -47,46 +43,6 @@ agent = create_agent(
     model = llm,
     system_prompt = "You are an AI assistant that will use tools supporting a triage system. Always use the tool get_transcription(audio_path: str) when audio needs to be transcribed. Always use extract_info(transcript: str, json_object: str) to set the transcription and JSON object variables. Follow all rules carefully.",
 )
-
-# PROMPT & OUTPUT JSON
-response = agent.invoke({
-    'messages': [
-        {
-            'role': 'user',
-            'content': """Using available tools, get a transcription for this audio and **only** set global variables for the transcript and a JSON object with the following fields:
-
-            event: The type of event (shooting, stabbing, assault, domestic violence, sexual assault, robbery, medical emergency, fire, traffic accident, natural disaster, hazard, animal incident, missing person, public disturbance) --> If there isn't a clear category choose the closest match without inventing details.
-            victims: Number of victims (integer) --> If not explicitly stated, return 1
-            injuries: Type of injury (unresponsive, critical bleeding, severe burns, broken bones, minor bleeding, minor injury), else "none"
-            weapon: Type of weapon involved (firearm, explosive, hazardous_material, blade, blunt object, chemical, unknown), else "none"
-            ongoing_threat: Small description if event described is currently in progress or people are at risk, else "not ongoing" --> Always give the description if the transcription is describing a threat that is happening right now, even if they mention help is on the way.
-
-            Tools Available:
-            1. get_transcription() --> Transcribes this audio file and returns text
-            2. extract_info(transcript: str, json_object: str) --> Lets you set the transcription and generated JSON object to accessible global variables
-
-            Rules:
-            1. Do not output anything. The only output should be through the tool extract_info().
-            2. Do not add ANY extra text outside the JSON object.
-            3. If information for a field exists but it is not clear specific type (ex. there exists a weapon but don't know specific one) set to unknown.  If nothing at all then use none as appropriate.
-            4. Limit text fields only to specified options for that respective field.
-
-Example of a generated JSON output:
-
-{
-  "event": "shooting",
-  "victims": 1,
-  "injuries": "gunshot, unresponsive",
-  "weapon": "firearm",
-  "ongoing_threat": "shooter fled, not on scene",
-}"""
-        }
-    ]
-})
-
-print("Agent Response", "\n", response['messages'][-1].content)
-print("Full Transcript:", full_transcript)
-print("Triage JSON:", triage_json)
 
 # PARSE JSON & CALCULATE SEVERITY RANK
 event_ranks = {
@@ -161,10 +117,59 @@ def calculate_severity():
 
 # RETURN ALL CONTEXT INFO
 def get_context_info():
+    global full_transcript, triage_json
+    triage_dict = json.loads(triage_json)
     return {
         "transcript": full_transcript,
-        "triage_data": triage_json,
+        "triage_data": triage_dict,
         "severity_score": calculate_severity()
     }
 
-print(get_context_info())
+# RUN AGENT AND PROCESS TRANSCRIPT FOR FRONTEND
+def run_agent(file: str):
+
+    # APPLY PREPROCESSING
+    processed_audio = agent_preprocessing.pipeline(file)
+    torchaudio.save(os.path.join("agent_outputs", "processed.wav"), processed_audio, 16000)
+
+    # PROMPT AGENT & OUTPUT JSON
+    response = agent.invoke({
+        'messages': [
+            {
+                'role': 'user',
+                'content': """Using available tools, get a transcription for this audio and **only** set global variables for the transcript and a JSON object with the following fields:
+
+                event: The type of event (shooting, stabbing, assault, domestic violence, sexual assault, robbery, medical emergency, fire, traffic accident, natural disaster, hazard, animal incident, missing person, public disturbance) --> If there isn't a clear category choose the closest match without inventing details.
+                victims: Number of victims (integer) --> If not explicitly stated, return 1
+                injuries: Closest type of injury if any hint of injury is mentioned (unresponsive, critical bleeding, severe burns, broken bones, minor bleeding, minor injury), else "none"
+                weapon: Type of weapon involved (firearm, explosive, hazardous_material, blade, blunt object, chemical, unknown), else "none"
+                ongoing_threat: Small description if event described is currently in progress or people are at risk, else "not ongoing" --> Always give the description if the transcription is describing a threat that is currently happening, even if they mention help is on the way.
+
+                Tools Available:
+                1. get_transcription() --> Transcribes this audio file and returns text
+                2. extract_info(transcript: str, json_object: str) --> Lets you set the transcription and generated JSON object to accessible global variables
+
+                Rules:
+                1. Do not output anything. The only output should be through the tool extract_info().
+                2. Do not add ANY extra text outside the JSON object.
+                3. If information for a field exists but it is not clear specific type (ex. there exists a weapon but don't know specific one) set to unknown.  If nothing at all then use none as appropriate.
+                4. Limit text fields only to specified options for that respective field.
+
+    Example of a generated JSON output:
+
+    {
+    "event": "shooting",
+    "victims": 1,
+    "injuries": "gunshot, unresponsive",
+    "weapon": "firearm",
+    "ongoing_threat": "shooter fled, not on scene",
+    }"""
+            }
+        ]
+    })
+    
+    print("Agent Response", "\n", response['messages'][-1].content)
+    print("Full Transcript:", full_transcript)
+    print("Triage JSON:", triage_json)
+    print("Severity:", calculate_severity())
+    return get_context_info()
