@@ -4,7 +4,7 @@ import numpy as np
 import tempfile
 from pathlib import Path
 
-from .voice_model import extract_features, emotion_to_score
+from voice_model import extract_features, emotion_to_score
 
 
 router = APIRouter(

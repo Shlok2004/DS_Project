@@ -1,18 +1,20 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 import agent_ranker
 import os
 import shutil
 
-app = FastAPI(
-    title = "Agent API",
-    description = "API for processing agent outputs and generating triage JSON",
+# app = FastAPI(
+#     title = "Agent API",
+#     description = "API for processing agent outputs and generating triage JSON",
+# )
+
+router = APIRouter(
+    prefix="/agent",
+    tags=["agent"],
 )
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
 temp_dir = "temp_file"
 
 os.makedirs(temp_dir, exist_ok=True)
@@ -28,9 +30,10 @@ class AnalysisJSON(BaseModel):
     triage_data: TriageJSON
     severity_score: float
 
-@app.post("/generate_json/",
+@router.post("/generate_json/",
           response_model = AnalysisJSON,
-          summary = "Generate Triage JSON from Audio",)
+          summary = "Generate Triage JSON from Audio",
+          tags = ["agent"])
 async def generate_json(audio: UploadFile = File(...)):
     global temp_dir
     # CHECK IF VALID AUDIO
