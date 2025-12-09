@@ -242,6 +242,29 @@ y_test_bin = label_binarize(y_test, classes=range(len(classes)))
 test_auc = roc_auc_score(y_test_bin, y_test_prob, multi_class="ovo", average="macro")
 print("Final Test AUC:", test_auc)
 
+def emotion_to_score(label:str) -> float:
+    """
+    Your custom 1–5 scoring logic based on intensity + emotion.
+    Example: label is 'strong_happy', 'normal_sad', etc.
+    """
+    intensity, emotion = label.split("_", 1)
+    base_map = {
+        "neutral":1.0,
+        "calm": 1.2,
+        "happy": 1.5,
+        "surprised": 2.0,
+        "sad": 3.5,
+        "fearful": 4.0,
+        "angry": 4.5,
+        "disgust": 4.7,
+    }
+
+    base = base_map.get(emotion, 3.0)
+    mult = 1.0 if intensity == "normal" else 1.2
+    score = base * mult
+    score = max(1.0, min(5.0, score))
+    return round(score, 2)
+
 
 import joblib
 bundle = {

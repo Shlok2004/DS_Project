@@ -18,14 +18,11 @@ def load_audio(path: str, target_sr: int = TARGET_SR):
     """
     Load audio, convert to mono, and resample to target_sr.
     """
-    # sr=None = keep original; we'll resample ourselves
     y, sr = librosa.load(path, sr=None, mono=False)
 
-    # If stereo -> average channels to mono
     if y.ndim == 2:
         y = np.mean(y, axis=0)
 
-    # Resample if needed
     if sr != target_sr:
         y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
         sr = target_sr
@@ -71,7 +68,6 @@ def preemphasis(y: np.ndarray, alpha: float = 0.97):
     """
     Apply pre-emphasis filter: y[n] - alpha * y[n-1]
     """
-    # Simple difference equation
     return np.append(y[0], y[1:] - alpha * y[:-1])
 
 
@@ -90,19 +86,15 @@ def bandpass_filter(
     """
     nyq = 0.5 * sr
 
-    # If no highcut given, pick something safely below Nyquist
     if highcut is None:
         highcut = 0.45 * sr  # e.g., 0.45 * 16000 = 7200 Hz
 
-    # Normalize
     low = lowcut / nyq
     high = highcut / nyq
 
-    # Clamp to (0, 1)
     low = max(low, 1e-5)
     high = min(high, 0.999)
 
-    # Make sure low < high
     if not (0 < low < high < 1):
         raise ValueError(f"Invalid bandpass frequencies: low={low}, high={high}, sr={sr}")
 
@@ -112,25 +104,15 @@ def bandpass_filter(
 
 # PIPELINE
 def pipeline(audio_path: str, target_sr: int = TARGET_SR) -> tuple[np.ndarray, int]:
-    # 1) Load + mono + resample
     y, sr = load_audio(audio_path, target_sr)
-
-    # 2) RMS normalize
     y = rms_normalize(y)
-
-    # 3) Trim silence
     y = trim_silence(y)
-
-    # 4) Noise reduction
     y = noise_reduce(y, sr)
-
-    # 5) Pre-emphasis
     y = preemphasis(y)
-
-    # 6) Band-pass filter
     y = bandpass_filter(y, sr)
 
     return y, sr
+
 
 
 def main():
@@ -148,7 +130,6 @@ def main():
 
             y_proc, sr = pipeline(in_path, TARGET_SR)
 
-            # Output filename
             out_path = os.path.join(processed_dir, file)
             sf.write(out_path, y_proc, sr)
             print(f"Processed: {in_path} -> {out_path}, length: {len(y_proc)/sr:.2f}s")
