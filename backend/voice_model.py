@@ -66,7 +66,7 @@ for wav_path in DATA_DIR.rglob("*.wav"):
     })
 
 df = pd.DataFrame(rows)
-df['audio_category'] = (df['emotion'] + "_" + df["gender"]).astype("category")
+df['audio_category'] = (df["emotion"] + "_" + df["gender"]).astype("category")
 print(df["audio_category"].nunique())  # should be <= 16
 
 print(df)
@@ -182,13 +182,13 @@ for path, y in tqdm(zip(file_paths, y_labels), total=len(file_paths)):
     feats["label"] = y
     rows.append(feats)
 
-df = pd.DataFrame(rows)
-print(df.shape)
+df1 = pd.DataFrame(rows)
+print(df1.shape)
 
 
 ####TRAINING THE MODEL####
-X = df.drop(columns = ["label"])
-y = df["label"]
+X = df1.drop(columns = ["label"])
+y = df1["label"]
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
