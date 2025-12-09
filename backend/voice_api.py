@@ -4,15 +4,16 @@ import numpy as np
 import tempfile
 from pathlib import Path
 
-from voice_model import extract_features, emotion_to_score
+from voice_features import extract_features, emotion_to_score
 
 
 router = APIRouter(
     prefix= "/predict_audio",
     tags = ["predict"]
 )
-BACKEND_DIR = Path(__file__).parent
-MODEL_PATH = BACKEND_DIR / "emotion_model.pkl"
+
+
+MODEL_PATH = Path(__file__).resolve().parent / "emotion_model.pkl"
 
 bundle = joblib.load(MODEL_PATH)
 rf_model = bundle["model"]
@@ -30,17 +31,11 @@ async def predict_audio(file: UploadFile = File(...)):
         tmp.write(await file.read())
         tmp_path = tmp.name
     
-    feats_dict = extract_features(tmp_path)
+    feats = extract_features(tmp_path)
 
-    try:
-       x_vec = [feats_dict[col] for col in feature_cols]
-    except KeyError as e:
-       raise HTTPException(
-         status_code=500,
-         detail=f"Missing feature {e} in extracted features. Check extract_features().")
+    x =  np.array([[feats[col] for col in feature_cols]])
     
-    X = np.array([x_vec])
-    probs = rf_model.predict_proba(X)[0]
+    probs = rf_model.predict_proba(x)[0]
     pred_idx = int(np.argmax(probs))
     pred_label = label_encoder.inverse_transform([pred_idx])[0]
 
