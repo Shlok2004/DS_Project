@@ -24,10 +24,11 @@ feature_cols = bundle["feature_columns"]
 
 @router.post("/")
 async def predict_audio(file: UploadFile = File(...)):
-    if file.content_type not in ("audio/wav", "audio/x-wav", "audio/wave"):
+    if file.content_type not in ("audio/wav", "audio/x-wav", "audio/wave", "audio/mpeg", "audio/mp3"):
         raise HTTPException(status_code=400, detail="Please upload a WAV file")
     
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+    ext = Path(file.filename).suffix or ".wav"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
     

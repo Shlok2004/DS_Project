@@ -6,10 +6,15 @@ def extract_features(
     sr=22050,
     n_mfcc=20,
     fmin=50,
-    fmax=600
+    fmax=600,
+    max_duration=5.0
 ):
     
     y, sr = librosa.load(file_path, sr=sr)
+
+    max_len  = int(sr * max_duration)
+    y = y[:max_len]
+
 
     if len(y) < 2:
         raise ValueError(f"Audio too short: {file_path}")
