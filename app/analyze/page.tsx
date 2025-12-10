@@ -209,6 +209,16 @@ export default function AnalyzePage() {
             </p>
           </div>
 
+          {/* EMOTIONS */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
+              Predicted Emotion
+            </h3>
+            <p className="text-9xl font-bold">
+              {emotions !== null ? emotions : "_____"}
+            </p>
+          </div>
+
           {/* EMOTIONAL SEVERITY */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
