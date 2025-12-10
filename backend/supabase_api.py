@@ -30,6 +30,7 @@ class TableEntry(BaseModel):
     transcript: str = ""
     key_details: KeyDetails = Field(default_factory=KeyDetails)
     is_active: bool = True
+    emotions: str = ""
 
 class RecordID(BaseModel):
     id: int
@@ -39,8 +40,8 @@ def new_record(connection: psycopg.Connection, values: dict):
     details = values.copy()
     details['key_details'] = json.dumps(values['key_details'])
     query = """
-        insert into call_severities (emotional_sev, context_sev, transcript, key_details, is_active)
-        values (%(emotional_sev)s, %(context_sev)s, %(transcript)s, %(key_details)s, %(is_active)s)
+        insert into call_severities (emotional_sev, context_sev, transcript, key_details, is_active, emotions)
+        values (%(emotional_sev)s, %(context_sev)s, %(transcript)s, %(key_details)s, %(is_active)s, %(emotions)s)
         returning id
     """
 

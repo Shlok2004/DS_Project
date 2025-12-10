@@ -3,87 +3,88 @@
 import Link from "next/link";
 import React, { useState } from "react";
 
-// Types
-type EmotionKey =
-  | "calm"
-  | "happy"
-  | "sad"
-  | "angry"
-  | "fearful"
-  | "surprised"
-  | "disgust";
-
-interface EmotionScores {
-  [key: string]: number;
-}
-
-interface AnalysisResult {
-  severity: number;
-  transcript: string;
-  emotions: EmotionScores;
-  keywords: string[];
-  modelNotes: string;
-}
-
 export default function AnalyzePage() {
   const [file, setFile] = useState<File | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [audioPath, setAudioPath] = useState<string | null>(null);
+  const [contextSev, setContextSev] = useState<number | null>(null);
+  const [emotionSev, setEmotionSev] = useState<number | null>(null);
+  const [transcript, setTranscript] = useState<string | null>(null);
+  const [keyDetails, setKeyDetails] = useState<KeyDetails | null>(null);
+  const [emotions, setEmotions] = useState<string | null>(null);
 
-  const handleAnalyze = async () => {
-    if (!file) return;
-    setIsAnalyzing(true);
-
-    // MOCK FOR DEMO – backend will replace this.
-    setTimeout(() => {
-      setResult({
-        severity: 87,
-        transcript:
-          "There were several gunshots outside my apartment, people are screaming and someone is on the ground. Please send help quickly.",
-        emotions: {
-          calm: 5,
-          happy: 0,
-          sad: 25,
-          angry: 10,
-          fearful: 70,
-          surprised: 40,
-          disgust: 15,
-        },
-        keywords: ["gunshots", "screaming", "on the ground", "send help"],
-        modelNotes:
-          "High severity due to fear emotion, rapid speech, and violent keywords.",
-      });
-      setIsAnalyzing(false);
-    }, 1200);
-  };
+  interface KeyDetails {
+    event: string;
+    injuries: string;
+    ongoing_threat: string;
+    victims: number;
+    weapon: string;
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
       setFile(selected);
-      setResult(null);
+      setAudioPath(URL.createObjectURL(selected));
     }
   };
 
-  const severityLabel = (v: number) =>
-    v >= 80 ? "Critical" : v >= 50 ? "Elevated" : "Low";
+  async function analyze() {
+    if (!file) {
+      console.log("No file given.")
+    }
+    else {
+      setProcessing(true);
+      const audioForm = new FormData();
+      audioForm.append('audio', file);
+      // CONFLICT SEVERITY
+      console.log(process.env.NEXT_PUBLIC_API_URL + "/agent/generate_json");
+      const resConSev = await fetch(process.env.NEXT_PUBLIC_API_URL + "/agent/generate_json", {
+        method: 'POST',
+        body: audioForm
+      })
+      const conSevJSON = await resConSev.json();
+      console.log(conSevJSON);
+      setContextSev(conSevJSON.severity_score);
+      setTranscript(conSevJSON.transcript);
+      setKeyDetails(conSevJSON.triage_data);
+      // EMOTIONAL SEVERITY
+      const resEmoSev = await fetch(process.env.NEXT_PUBLIC_API_URL + "/predict_audio", {
+        method: 'POST',
+        body: audioForm
+      })
+      const emoSevJSON = await resEmoSev.json();
+      setEmotionSev(emoSevJSON.score);
+      setEmotions(emoSevJSON.predicted_label);
+      console.log(emoSevJSON);
+      // PUSH RECORD TO DATABASE
+      const record = {
+        emotional_sev: emoSevJSON.score,
+        context_sev: conSevJSON.severity_score,
+        transcript: conSevJSON.transcript,
+        key_details: conSevJSON.triage_data,
+        is_active: true,
+        emotions: emoSevJSON.predicted_label,
+      }
+      const resSB = await fetch(process.env.NEXT_PUBLIC_API_URL + "/supabase", {
+        method: 'POST',
+        headers: { "Content-Type": "application/json", },
+        body: JSON.stringify(record),
+      })
+      console.log(resSB);
+      // console.log(contextSev, emotionSev, transcript, keyDetails, emotions);
+      setProcessing(false);
+    }
+  }
 
-  const severityColor = (v: number) =>
-    v >= 80
-      ? "text-red-500"
-      : v >= 50
-      ? "text-amber-300"
-      : "text-emerald-300";
+  React.useEffect(() => {
+    return () => {
+      if (audioPath)
+        URL.revokeObjectURL(audioPath);
+    };
+  }, [audioPath]);
 
-  const emotionOrder: EmotionKey[] = [
-    "calm",
-    "happy",
-    "sad",
-    "angry",
-    "fearful",
-    "surprised",
-    "disgust",
-  ];
+  console.log("ENV TEST:", process.env.NEXT_PUBLIC_API_URL);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-slate-900 to-black text-slate-100 flex items-center justify-center px-6 py-10">
@@ -94,13 +95,13 @@ export default function AnalyzePage() {
           <p className="text-xs uppercase tracking-[0.2em] text-red-400">
             Rutgers University • CS439
           </p>
-
+          <div>
+            Public: {process.env.NEXT_PUBLIC_API_URL}
+          </div>
           <h1 className="text-3xl font-bold">Audio Analysis</h1>
 
           <p className="text-sm text-slate-300 max-w-2xl">
-            Upload a 911 call snippet to see severity scoring, emotion breakdown, 
-            key triggers, and transcript details. Backend will connect Whisper 
-            + our ML distress model here.
+            Upload a call snippet to see emotional and context severity, a transcript and key information about the call.
           </p>
 
           {/* NEW BUTTON → Calls Database */}
@@ -130,6 +131,7 @@ export default function AnalyzePage() {
                   type="file"
                   accept="audio/*"
                   className="hidden"
+                  name="uploadAudio"
                   onChange={handleFileChange}
                 />
               </label>
@@ -147,31 +149,35 @@ export default function AnalyzePage() {
                 Audio Preview
               </h3>
 
-              <div className="h-16 bg-slate-800 rounded-lg animate-pulse" />
+              <div className="h-16 flex items-center justify-center">
+                {audioPath ? (
+                  <audio
+                    className="w-full"
+                    key={audioPath}
+                    src={audioPath}
+                    controls
+                  >
+                    Invalid audio file.
+                  </audio>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Select an audio file to view player.
+                  </p>
+                )}
+              </div>
 
               {/* ACTION BUTTONS */}
-              <div className="flex justify-between mt-3 text-xs">
-                <button
-                  disabled={!file}
-                  className={`px-3 py-1 rounded-full font-semibold ${
-                    file
-                      ? "bg-slate-100 text-black"
-                      : "bg-slate-800 text-slate-500"
-                  }`}
-                >
-                  ▶ Play (UI only)
-                </button>
+              <div className="flex justify-center mt-3 text-xs">
 
                 <button
-                  onClick={handleAnalyze}
-                  disabled={!file || isAnalyzing}
-                  className={`px-4 py-1 rounded-full font-semibold ${
-                    file && !isAnalyzing
-                      ? "bg-red-600 text-white hover:bg-red-500"
-                      : "bg-slate-800 text-slate-500"
-                  }`}
+                  onClick={analyze}
+                  disabled={!file || processing}
+                  className={`px-4 py-1 rounded-full font-semibold ${file && !processing
+                    ? "bg-red-600 text-white hover:bg-red-500"
+                    : "bg-slate-800 text-slate-500"
+                    }`}
                 >
-                  {isAnalyzing ? "Analyzing…" : "Analyze Audio"}
+                  {processing ? "Analyzing…" : "Analyze Audio"}
                 </button>
               </div>
             </div>
@@ -179,102 +185,81 @@ export default function AnalyzePage() {
             {/* SEVERITY */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
               <h3 className="text-xs uppercase tracking-[0.16em] text-slate-300 mb-1">
-                Overall Severity
+                Overall Severity (Out of 10)
               </h3>
-
-              <p className={`text-2xl font-bold ${result ? severityColor(result.severity) : "text-slate-500"}`}>
-                {result ? result.severity : "--"}
+              <p className="text-9xl font-bold">
+                {contextSev !== null && emotionSev !== null ? contextSev + emotionSev : "_____"}
               </p>
-
-              <p className="text-sm">{result ? severityLabel(result.severity) : "N/A"}</p>
-
               <div className="h-3 bg-slate-800 rounded-full mt-2 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-400 via-amber-300 to-red-500"
-                  style={{ width: `${result ? result.severity : 0}%` }}
                 />
               </div>
             </div>
 
           </section>
 
-          {/* RIGHT PANEL */}
-          <section className="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4">
+          {/* CONTEXT SEVERITY */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
+              Context Severity (Out of 5)
+            </h3>
+            <p className="text-9xl font-bold">
+              {contextSev !== null ? contextSev : "_____"}
+            </p>
+          </div>
 
-            {/* EMOTION BREAKDOWN */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-                Emotion Breakdown
-              </h3>
+          {/* EMOTIONAL SEVERITY */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
+              Audible Emotional Severity (Out of 5)
+            </h3>
+            <p className="text-9xl font-bold">
+              {emotionSev !== null ? emotionSev : "_____"}
+            </p>
+          </div>
 
-              {!result ? (
-                <p className="text-xs text-slate-300">No analysis yet.</p>
-              ) : (
-                emotionOrder.map((emo) => {
-                  const val = result.emotions[emo];
-                  if (!val) return null;
+          {/* TRANSCRIPT */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
+              Transcript
+            </h3>
+            <p className="text-9xl font-bold">
+              {transcript !== null ? transcript : "_____"}
+            </p>
+            <p className="text-sm text-slate-100">
+            </p>
+          </div>
 
-                  return (
-                    <div key={emo} className="flex items-center gap-2 text-xs mb-1">
-                      <span className="w-20 capitalize">{emo}</span>
-                      <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-red-500"
-                          style={{ width: `${val}%` }}
-                        />
-                      </div>
-                      <span className="w-8 text-right text-slate-400">{val}%</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* TRANSCRIPT */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-                Transcript (Whisper)
-              </h3>
-
-              <p className="text-sm text-slate-100">
-                {result ? result.transcript : "Transcript will appear here after analysis."}
-              </p>
-            </div>
-
-            {/* KEYWORDS */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-                Key Triggers
-              </h3>
-
-              {!result ? (
-                <p className="text-xs text-slate-300">No keywords found yet.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {result.keywords.map((kw) => (
-                    <span
-                      key={kw}
-                      className="px-2 py-1 bg-slate-800 rounded-full border border-slate-600 text-xs"
-                    >
-                      {kw}
-                    </span>
-                  ))}
+          {/* KEYWORDS */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
+              Key Information
+            </h3>
+            {keyDetails ? (
+              <div className="flex flex-row justify-around">
+                <div className="flex flex-col">
+                  <h1>EVENT</h1>
+                  <p>{keyDetails.event}</p>
                 </div>
-              )}
-            </div>
-
-            {/* MODEL NOTES */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-                Model Notes
-              </h3>
-
-              <p className="text-sm text-slate-100">
-                {result ? result.modelNotes : "Model notes will appear here after analysis."}
-              </p>
-            </div>
-
-          </section>
+                <div className="flex flex-col">
+                  <h1>INJURIES</h1>
+                  <p>{keyDetails.injuries}</p>
+                </div>
+                <div className="flex flex-col">
+                  <h1>ONGOING?</h1>
+                  <p>{keyDetails.ongoing_threat}</p>
+                </div>
+                <div className="flex flex-col">
+                  <h1>VICTIMS</h1>
+                  <p>{keyDetails.victims}</p>
+                </div>
+                <div className="flex flex-col">
+                  <h1>WEAPONS</h1>
+                  <p>{keyDetails.weapon}</p>
+                </div>
+              </div>) : (<p className="text-9xl font-bold">_____</p>)}
+          </div>
         </div>
       </div>
     </div>

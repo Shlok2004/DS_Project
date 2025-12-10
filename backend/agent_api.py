@@ -11,13 +11,13 @@ import shutil
 # )
 
 router = APIRouter(
-    prefix="/agent",
-    tags=["agent"],
+    prefix = "/agent",
+    tags = ["agent"],
 )
 
 temp_dir = "temp_file"
 
-os.makedirs(temp_dir, exist_ok=True)
+os.makedirs(temp_dir, exist_ok = True)
 class TriageJSON(BaseModel):
     event: str
     victims: int
@@ -39,10 +39,10 @@ async def generate_json(audio: UploadFile = File(...)):
     # CHECK IF VALID AUDIO
     if not audio.content_type or not audio.content_type.startswith('audio/'):
         raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid file. Expected audio file, received {audio.content_type} file."
+            status_code = 400, 
+            detail = f"Invalid file. Expected audio file, received {audio.content_type} file."
         )
-    # CREATE TEMP FILE DIRECTORY
+
     temp_path = os.path.join(temp_dir, audio.filename)
 
     # LOAD AUDIO INTO MEMORY
@@ -56,8 +56,8 @@ async def generate_json(audio: UploadFile = File(...)):
         )
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"Error loading audio: {str(e)}"
+            status_code = 500,
+            detail = f"Error loading audio: {e}"
         )
     finally:
         if os.path.exists(temp_path):
