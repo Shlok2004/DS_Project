@@ -84,48 +84,37 @@ export default function AnalyzePage() {
     };
   }, [audioPath]);
 
-  console.log("ENV TEST:", process.env.NEXT_PUBLIC_API_URL);
+  console.log("ENV EXISTS:", process.env.NEXT_PUBLIC_API_URL);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-slate-900 to-black text-slate-100 flex items-center justify-center px-6 py-10">
-      <div className="w-full max-w-6xl flex flex-col gap-6">
+    <div className="min-h-screen">
+      <div className="w-full">
 
         {/* HEADER */}
-        <header className="flex flex-col gap-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-red-400">
-            Rutgers University • CS439
+        <header className="flex flex-col">
+          <p>
+            Rutgers University - CS439
           </p>
           <div>
             Public: {process.env.NEXT_PUBLIC_API_URL}
           </div>
-          <h1 className="text-3xl font-bold">Audio Analysis</h1>
-
-          <p className="text-sm text-slate-300 max-w-2xl">
-            Upload a call snippet to see emotional and context severity, a transcript and key information about the call.
-          </p>
-
-          {/* NEW BUTTON → Calls Database */}
+          <h1 className="text-3xl">Audio Analysis</h1>
+          <p>Upload a call snippet to see emotional and context severity, a transcript and key information about the call.</p>
+          {/* ARCHIVED CALLS */}
           <Link
             href="/calls"
-            className="inline-block w-fit px-5 py-2 rounded-full bg-slate-800 text-white text-sm font-semibold shadow-md hover:bg-slate-700 transition"
           >
-            View Processed Calls Database
+            Archived Calls
           </Link>
         </header>
 
         {/* MAIN GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-5">
-
-          {/* LEFT PANEL */}
-          <section className="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4">
-
+        <div>
+          <section className="border">
             {/* UPLOAD */}
-            <div className="border border-dashed border-slate-700 rounded-xl p-5 flex flex-col items-center bg-slate-900/70">
-              <p className="text-sm text-slate-200 mb-3">
-                Drag & drop audio here or click to browse
-              </p>
-
-              <label className="px-5 py-2 bg-red-600 rounded-full text-white cursor-pointer font-semibold hover:bg-red-500 transition">
+            <div className="flex flex-col items-center">
+              <p>Select an audio file below</p>
+              <label>
                 Choose file
                 <input
                   type="file"
@@ -136,20 +125,18 @@ export default function AnalyzePage() {
                 />
               </label>
 
-              {file && (
-                <p className="mt-3 text-xs text-slate-200">
-                  Selected: <span className="font-semibold">{file.name}</span>
-                </p>
-              )}
+              {file ? (
+                <p>Selected: <span>{file.name}</span></p>
+              ) : (<p>Nothing Selected</p>)}
             </div>
 
             {/* AUDIO PREVIEW */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <h3 className="text-xs uppercase tracking-[0.16em] text-slate-300 mb-1">
-                Audio Preview
+            <div className="border">
+              <h3>
+                AUDIO PREVIEW
               </h3>
 
-              <div className="h-16 flex items-center justify-center">
+              <div className="flex justify-center">
                 {audioPath ? (
                   <audio
                     className="w-full"
@@ -157,25 +144,20 @@ export default function AnalyzePage() {
                     src={audioPath}
                     controls
                   >
-                    Invalid audio file.
+                    Invalid audio.
                   </audio>
                 ) : (
-                  <p className="text-sm text-slate-500">
-                    Select an audio file to view player.
+                  <p>
+                    Select a file for analysis.
                   </p>
                 )}
               </div>
 
-              {/* ACTION BUTTONS */}
-              <div className="flex justify-center mt-3 text-xs">
-
+              {/* ANALYZE BUTTON */}
+              <div className="flex justify-center">
                 <button
                   onClick={analyze}
                   disabled={!file || processing}
-                  className={`px-4 py-1 rounded-full font-semibold ${file && !processing
-                    ? "bg-red-600 text-white hover:bg-red-500"
-                    : "bg-slate-800 text-slate-500"
-                    }`}
                 >
                   {processing ? "Analyzing…" : "Analyze Audio"}
                 </button>
@@ -183,66 +165,39 @@ export default function AnalyzePage() {
             </div>
 
             {/* SEVERITY */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <h3 className="text-xs uppercase tracking-[0.16em] text-slate-300 mb-1">
-                Overall Severity (Out of 10)
-              </h3>
-              <p className="text-9xl font-bold">
-                {contextSev !== null && emotionSev !== null ? contextSev + emotionSev : "_____"}
-              </p>
-              <div className="h-3 bg-slate-800 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-emerald-400 via-amber-300 to-red-500"
-                />
-              </div>
+            <div>
+              <h3>OVERALL SEVERITY (OUT OF 10)</h3>
+              <p>{contextSev !== null && emotionSev !== null ? contextSev + emotionSev : "_____"}</p>
             </div>
 
           </section>
 
           {/* CONTEXT SEVERITY */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-              Context Severity (Out of 5)
-            </h3>
-            <p className="text-9xl font-bold">
-              {contextSev !== null ? contextSev : "_____"}
-            </p>
+          <div className="border">
+            <h3>CONTEXT SEVERITY (OUT OF 5)</h3>
+            <p>{contextSev !== null ? contextSev : "_____"}</p>
           </div>
 
           {/* EMOTIONS */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-              Predicted Emotion
-            </h3>
-            <p className="text-9xl font-bold">
-              {emotions !== null ? emotions : "_____"}
-            </p>
+          <div className="border">
+            <h3>PREDICTED EMOTION</h3>
+            <p>{emotions !== null ? emotions : "_____"}</p>
           </div>
 
           {/* EMOTIONAL SEVERITY */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-              Audible Emotional Severity (Out of 5)
-            </h3>
-            <p className="text-9xl font-bold">
-              {emotionSev !== null ? emotionSev : "_____"}
-            </p>
+          <div className="border">
+            <h3>AUDIBLE EMOTIONAL SEVERITY (OUT OF 5)</h3>
+            <p>{emotionSev !== null ? emotionSev : "_____"}</p>
           </div>
 
           {/* TRANSCRIPT */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-              Transcript
-            </h3>
-            <p className="text-9xl font-bold">
-              {transcript !== null ? transcript : "_____"}
-            </p>
-            <p className="text-sm text-slate-100">
-            </p>
+          <div className="border">
+            <h3>TRANSCRIPT</h3>
+            <p>{transcript !== null ? transcript : "_____"}</p>
           </div>
 
           {/* KEYWORDS */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="border">
             <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
               Key Information
             </h3>
@@ -268,7 +223,7 @@ export default function AnalyzePage() {
                   <h1>WEAPONS</h1>
                   <p>{keyDetails.weapon}</p>
                 </div>
-              </div>) : (<p className="text-9xl font-bold">_____</p>)}
+              </div>) : (<p>_____</p>)}
           </div>
         </div>
       </div>
