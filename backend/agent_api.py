@@ -25,13 +25,13 @@ class TriageJSON(BaseModel):
     weapon: str
     ongoing_threat: str
 
-class AnalysisJSON(BaseModel):
+class DetailsJSON(BaseModel):
     transcript: str
     triage_data: TriageJSON
     severity_score: float
 
 @router.post("/generate_json/",
-          response_model = AnalysisJSON,
+          response_model = DetailsJSON,
           summary = "Generate Triage JSON from Audio",
           tags = ["agent"])
 async def generate_json(audio: UploadFile = File(...)):
@@ -51,8 +51,8 @@ async def generate_json(audio: UploadFile = File(...)):
             shutil.copyfileobj(audio.file, buffer)
         print("File successfully loaded:", audio.filename)
         context_info = await run_in_threadpool(
-                    agent_ranker.run_agent, 
-                    temp_path
+            agent_ranker.run_agent, 
+            temp_path
         )
     except Exception as e:
         raise HTTPException(
@@ -63,4 +63,4 @@ async def generate_json(audio: UploadFile = File(...)):
         if os.path.exists(temp_path):
             os.remove(temp_path)
     
-    return AnalysisJSON(**context_info)
+    return DetailsJSON(**context_info)
