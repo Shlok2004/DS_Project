@@ -95,9 +95,9 @@ export default function AnalyzePage() {
           <p>
             Rutgers University - CS439
           </p>
-          <div>
+          {/* <div>
             Public: {process.env.NEXT_PUBLIC_API_URL}
-          </div>
+          </div> */}
           <h1 className="text-3xl">Audio Analysis</h1>
           <p>Upload a call snippet to see emotional and context severity, a transcript and key information about the call.</p>
           {/* ARCHIVED CALLS */}
