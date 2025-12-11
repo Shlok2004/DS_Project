@@ -15,23 +15,8 @@
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
+      to bottom, transparent,
+    rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
-}
-
-/* Pretty scrollbars (optional) */
-* {
-  scrollbar-width: thin;
-}
-
-*::-webkit-scrollbar {
-  width: 6px;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: #111827;
-  border-radius: 9999px;
 }
