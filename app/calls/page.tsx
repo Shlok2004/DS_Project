@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 
 export default function CallsPage() {
   const [active, setActive] = useState<Record[] | null>(null);
@@ -48,46 +48,33 @@ export default function CallsPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-slate-900 to-black text-slate-100 px-6 py-10 flex justify-center">
-      <div className="w-full max-w-6xl flex flex-col gap-6">
-
+    <div className = "flex justify-center">
+      <div>
         {/* HEADER */}
-        <header className="flex flex-col gap-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-red-400">
-            Rutgers University • CS439
-          </p>
+        <header>
+          <p>RUTGERS UNIVERSITY - CS439</p>
+          <h1>Processed Calls Database</h1>
+          <p>All analyzed calls are stored here with severity information</p>
 
-          <h1 className="text-3xl font-bold">Processed Calls Database</h1>
-
-          <p className="text-sm text-slate-300 max-w-2xl">
-            All analyzed calls are stored here with severity rating, emotion breakdown,
-            keywords, and a downloadable transcript.
-          </p>
-
-          {/* NEW BUTTON → Go to Analyzer */}
-          <Link
-            href="/analyze"
-            className="inline-block w-fit px-5 py-2 rounded-full bg-red-600 text-white text-sm font-semibold shadow-md hover:bg-red-500 transition"
-          >
-            Go to Voice Analyzer
-          </Link>
+          {/* PROCESS */}
+          <Link href="/analyze"> PROCESS A CALL </Link>
         </header>
         <h1>ACTIVE</h1>
         <div className="flex flex-col">
           {/* ACTIVE TABLE */}
           {active ? (
-            <section className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-slate-900 border-b border-slate-800">
+            <section className="border">
+              <table className="border-collapse">
+                <thead className="border">
                   <tr>
-                    <th className="p-3">Call ID</th>
-                    <th className="p-3">Date/Time</th>
-                    <th className="p-3">Emotions</th>
-                    <th className="p-3">Emotional Severity</th>
-                    <th className="p-3">Context Severity</th>
-                    <th className="p-3">Transcript</th>
-                    <th className="p-3">Key Details</th>
-                    {/* <th className="p-3">Make Inactive?</th> */}
+                    <th>Call ID</th>
+                    <th>Date/Time</th>
+                    <th>Emotions</th>
+                    <th>Emotional Severity</th>
+                    <th>Context Severity</th>
+                    <th>Transcript</th>
+                    <th>Key Details</th>
+                    {/* <th>Make Inactive?</th> */}
                   </tr>
                 </thead>
 
@@ -121,20 +108,19 @@ export default function CallsPage() {
           {/* INACTIVE TABLE */}
           {/* <h1>INACTIVE</h1>
           {active ? (
-            <section className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-slate-900 border-b border-slate-800">
+            <section>
+              <table className="border-collapse">
+                <thead className="border">
                   <tr className="text-slate-300">
-                    <th className="p-3 text-left">Call ID</th>
-                    <th className="p-3 text-left">Date/Time</th>
-                    <th className="p-3 text-left">Overall Severity</th>
-                    <th className="p-3 text-left">Context Severity</th>
-                    <th className="p-3 text-left">Emotional Severity</th>
-                    <th className="p-3 text-left">Key Details</th>
-                    <th className="p-3 text-left">Transcript</th>
+                    <th>Call ID</th>
+                    <th>Date/Time</th>
+                    <th>Overall Severity</th>
+                    <th>Context Severity</th>
+                    <th>Emotional Severity</th>
+                    <th>Key Details</th>
+                    <th>Transcript</th>
                   </tr>
                 </thead>
-
                 <tbody>
 
                 </tbody>
