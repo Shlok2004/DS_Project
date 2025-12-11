@@ -32,8 +32,7 @@ class DetailsJSON(BaseModel):
 
 @router.post("/generate_json/",
           response_model = DetailsJSON,
-          summary = "Generate Triage JSON from Audio",
-          tags = ["agent"])
+          summary = "Generate Triage JSON from Audio")
 async def generate_json(audio: UploadFile = File(...)):
     global temp_dir
     # CHECK IF VALID AUDIO
@@ -56,8 +55,7 @@ async def generate_json(audio: UploadFile = File(...)):
         )
     except Exception as e:
         raise HTTPException(
-            status_code = 500,
-            detail = f"Error loading audio: {e}"
+            status_code = 500, detail = f"Error loading audio: {e}"
         )
     finally:
         if os.path.exists(temp_path):

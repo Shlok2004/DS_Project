@@ -28,7 +28,7 @@ class TableEntry(BaseModel):
     emotional_sev: float = 0.0
     context_sev: float = 0.0
     transcript: str = ""
-    key_details: KeyDetails = Field(default_factory=KeyDetails)
+    key_details: KeyDetails = Field(default_factory = KeyDetails)
     is_active: bool = True
     emotions: str = ""
 
@@ -65,52 +65,6 @@ async def add_new_call(call: TableEntry):
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Insertion failed: {e}")
     
-
-# UPDATE (MAKE A RECORD INACTIVE)
-def add_to_archive(connection: psycopg.Connection, id: int):
-    query = """
-        update call_severities
-        set is_active = false
-        where id = %(id)s
-        returning id;
-    """
-
-    with connection.cursor() as curs:
-        curs.execute(query, {'id': id})
-        connection.commit()
-
-@router.put("/archive/{call_id}", summary = "Archive a call")
-async def archive_record(call_id: int):
-    if connection is None:
-        raise HTTPException(status_code = 503, detail = "No database connection")
-    try:
-        await run_in_threadpool(add_to_archive, connection, call_id)
-        return "Record successfully archived"
-    except Exception as e:
-        raise HTTPException(status_code = 500, detail = f"Update failed: {e}")
-
-
-# DELETE (REMOVE A RECORD)
-def delete_call(connection: psycopg.Connection, id: int):
-    query = """
-        delete from call_severities
-        where id = %(id)s;
-    """
-
-    with connection.cursor() as curs:
-        curs.execute(query, {'id': id})
-        connection.commit()
-
-@router.delete("/{id}", summary = "Delete a call")
-async def delete_record(id: int):
-    if connection is None:
-        raise HTTPException(status_code = 503, detail = "No database connection")
-    try:
-        await run_in_threadpool(delete_call, connection, id)
-        return "Record successfully deleted"
-    except Exception as e:
-        raise HTTPException(status_code = 500, detail = f"Delete failed, or invalid call id: {e}")
-
 # GET (ALL ACTIVE RECORDS)
 def records_by_active(connection: psycopg.Connection, is_active: bool):
     query = """
@@ -137,6 +91,8 @@ async def get_active():
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Error while querying: {e}")
     
+# ------------------ BELOW WERE IMIPLEMENTED TESTED AND FUNCTIONAL BUT RAN OUT OF TIME TO INTEGRATE INTO FRONTEND -----------
+
 # GET (ALL INACTIVE RECORDS)
 @router.get("/inactive", summary = "Get inactive records")
 async def get_inactive():
@@ -147,3 +103,47 @@ async def get_inactive():
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Error while querying: {e}")
 
+# DELETE (REMOVE A RECORD)
+def delete_call(connection: psycopg.Connection, id: int):
+    query = """
+        delete from call_severities
+        where id = %(id)s;
+    """
+
+    with connection.cursor() as curs:
+        curs.execute(query, {'id': id})
+        connection.commit()
+
+@router.delete("/{id}", summary = "Delete a call")
+async def delete_record(id: int):
+    if connection is None:
+        raise HTTPException(status_code = 503, detail = "No database connection")
+    try:
+        await run_in_threadpool(delete_call, connection, id)
+        return "Record successfully deleted"
+    except Exception as e:
+        raise HTTPException(status_code = 500, detail = f"Delete failed, or invalid call id: {e}")
+
+# UPDATE (MAKE A RECORD INACTIVE)
+def add_to_archive(connection: psycopg.Connection, id: int):
+    query = """
+        update call_severities
+        set is_active = false
+        where id = %(id)s
+        returning id;
+    """
+
+    with connection.cursor() as curs:
+        curs.execute(query, {'id': id})
+        connection.commit()
+
+@router.put("/archive/{call_id}", summary = "Archive a call")
+async def archive_record(call_id: int):
+    if connection is None:
+        raise HTTPException(status_code = 503, detail = "No database connection")
+    try:
+        await run_in_threadpool(add_to_archive, connection, call_id)
+        return "Record successfully archived"
+    except Exception as e:
+        raise HTTPException(status_code = 500, detail = f"Update failed: {e}")
+    

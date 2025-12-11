@@ -16,24 +16,24 @@ def unsqueeze_audio(audio: torch.Tensor):
         audio = audio.unsqueeze(0)
     return audio
 
-# 1. RESAMPLING (Unify Sample Rates)
+# RESAMPLING (CONSISTENT SAMPLE RATES)
 def resample(audio: torch.Tensor, samp_rate: int, new_samp_rate: int=16000):
     resampler = torchaudio.transforms.Resample(samp_rate, new_samp_rate)
     return resampler(audio)
 
-# 2. STEREO TO MONO
+# STEREO TO MONO
 def stereo_to_mono(audio: torch.Tensor):
-    return torch.mean(audio, dim=0, keepdim=True)
+    return torch.mean(audio, dim = 0, keepdim = True)
 
-# 3. ROOT MEAN SQUARE VOLUME NORMALIZATION (Make Loudness More Consistent)
-def normalize(audio: torch.Tensor, target_rms: float=0.1):
-    rms = torch.sqrt(torch.mean(audio**2, dim=1, keepdim=True))
-    return audio * (target_rms/(rms+1e-8))
+# ROOT MEAN SQUARE VOLUME NORMALIZATION (CONSISTENT LOUDNESS)
+def normalize(audio: torch.Tensor, target_rms: float = 0.1):
+    rms = torch.sqrt(torch.mean(audio**2, dim = 1, keepdim= True))
+    return audio * (target_rms/(rms + 1e-8))
     
 
-# 4. TRIM LEADING/TRAILING SILENCE
-def trim_silence(audio: torch.Tensor, threshold: float=0.01):
-    val_mask = (audio.abs() > threshold).any(dim=0)
+# TRIM LEADING/TRAILING SILENCE
+def trim_silence(audio: torch.Tensor, threshold: float = 0.01):
+    val_mask = (audio.abs() > threshold).any(dim = 0)
     if val_mask.any():
         start_sound = val_mask.nonzero(as_tuple=True)[0][0]
         end_sound = val_mask.nonzero(as_tuple=True)[0][-1] + 1
@@ -42,73 +42,42 @@ def trim_silence(audio: torch.Tensor, threshold: float=0.01):
         trimmed_audio = audio
     return trimmed_audio
 
-# 5. NOISE REDUCTION (Reduce Background Noise)
+# NOISE REDUCTION
 def noise_reduce(audio: torch.Tensor, rate: int):
-    reduced_noise = nr.reduce_noise(y = audio.numpy(), sr=rate, n_std_thresh_stationary=1,stationary=True)
+    reduced_noise = nr.reduce_noise(y = audio.numpy(), sr = rate, n_std_thresh_stationary = 1,stationary = True)
     return torch.from_numpy(reduced_noise)
 
-# 6. PREEMPHASIS FILTERING (Make Quieter Sounds Stronger)
-def preemphasis(audio: torch.Tensor, alpha:float=0.97):
-    emphasize = torchaudio.transforms.Preemphasis(coeff=alpha)
+# PREEMPHASIS FILTERING (MAKE QUIET SOUNDS LOUDER)
+def preemphasis(audio: torch.Tensor, alpha:float = 0.97):
+    emphasize = torchaudio.transforms.Preemphasis(coeff = alpha)
     return emphasize(audio)
 
-# 7. VOICE ACTIVITY DETECTION (Detect Speech, Remove Everything Else)
-def voice_act_detect(audio: torch.Tensor, rate: int):
-    vad = torchaudio.transforms.Vad(sample_rate=rate)
-    return vad(audio)
-
-# 8. FREQUENCY FILTERING
+# FREQUENCY FILTERING
 def frequency_filter(audio: torch.Tensor, rate: int):
-    highpassed = torchaudio.functional.highpass_biquad(audio, sample_rate=rate, cutoff_freq=80.0)
-    return torchaudio.functional.lowpass_biquad(highpassed, sample_rate=rate, cutoff_freq=8000.0)
-
-# 9. DATA AUGMENTATION (Add Background Noise, Change Pitch, Speed, etc. to Mimic Real World Recordings)
-
-
-# 10. FEATURE EXTRACTION (ex. MFCCs, Mel Spectrograms)
-
+    highpassed = torchaudio.functional.highpass_biquad(audio, sample_rate=rate, cutoff_freq = 80.0)
+    return torchaudio.functional.lowpass_biquad(highpassed, sample_rate=rate, cutoff_freq = 8000.0)
 
 # RUN PIPELINE
 def pipeline(audio_path, target_samp_rate: int=16000):
     # LOAD AUDIO
-    audio_lib, samp_rate = librosa.load(audio_path, sr=None, mono=False)
+    audio_lib, samp_rate = librosa.load(audio_path, sr = None, mono = False)
     audio = torch.from_numpy(audio_lib)
-
-    # UNSQUEEZE
     audio = unsqueeze_audio(audio)
     print(audio_path, audio.shape)
 
-    # RESAMPLE
     resampled = resample(audio, samp_rate, target_samp_rate)
     # print(resampled.shape)
-
-    # MAKE MONO
     mono_audio = stereo_to_mono(resampled)
     # print(mono_audio.shape)
-
-    # NORMALIZE
     normalized_audio = normalize(mono_audio)
     # print(normalized_audio.shape)
-
-    # TRIM SILENCE
     trimmed_audio = trim_silence(normalized_audio)
     # print(trimmed_audio.shape)
-
-    # NOISE REDUCTION
     noise_reduced_audio = noise_reduce(trimmed_audio, target_samp_rate)
     # print(noise_reduced_audio.shape)
-
-    # PREEMPHASIS
     preemph_audio = preemphasis(noise_reduced_audio)
     # print(preemph_audio.shape)
-
-    # # VOICE ACTIVITY DETECTION
-    # vad_audio = voice_act_detect(preemph_audio, target_samp_rate)
-    # # print(vad_audio.shape)
-
-    # FREQUENCY FILTERING
     filtered_audio = frequency_filter(preemph_audio, target_samp_rate)
     print(audio_path, filtered_audio.shape)
 
-    # RETURN
     return filtered_audio

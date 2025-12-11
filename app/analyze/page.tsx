@@ -101,14 +101,9 @@ export default function AnalyzePage() {
           <h1 className="text-3xl">Audio Analysis</h1>
           <p>Upload a call snippet to see emotional and context severity, a transcript and key information about the call.</p>
           {/* ARCHIVED CALLS */}
-          <Link
-            href="/calls"
-          >
-            Archived Calls
-          </Link>
+          <Link href="/calls"> Archived Calls </Link>
         </header>
 
-        {/* MAIN GRID */}
         <div>
           <section className="border">
             {/* UPLOAD */}
@@ -196,10 +191,10 @@ export default function AnalyzePage() {
             <p>{transcript !== null ? transcript : "_____"}</p>
           </div>
 
-          {/* KEYWORDS */}
+          {/* KEY INFO */}
           <div className="border">
-            <h3 className="text-xs uppercase tracking-[0.16em] text-red-400 mb-2">
-              Key Information
+            <h3>
+              KEY INFORMATION
             </h3>
             {keyDetails ? (
               <div className="flex flex-row justify-around">

@@ -115,7 +115,7 @@ def calculate_severity():
         (injury_sev * weights['injuries']) +
         (ongoing_sev * weights['ongoing'])), 2)
 
-# RETURN ALL CONTEXT INFO
+# RETURN ALL CONTEXT INFO FOR DB
 def get_context_info():
     global full_transcript, triage_json
     triage_dict = json.loads(triage_json)
@@ -158,11 +158,11 @@ def run_agent(file: str):
     Example of a generated JSON output:
 
     {
-    "event": "shooting",
-    "victims": 1,
-    "injuries": "gunshot, unresponsive",
-    "weapon": "firearm",
-    "ongoing_threat": "shooter fled, not on scene",
+        "event": "shooting",
+        "victims": 1,
+        "injuries": "unresponsive",
+        "weapon": "firearm",
+        "ongoing_threat": "shooter fled, not on scene",
     }"""
             }
         ]
