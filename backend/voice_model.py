@@ -5,12 +5,14 @@ import librosa
 from tqdm import tqdm
 import os
 import joblib
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve, auc
 
 from voice_features import extract_features, emotion_to_score
 
@@ -94,19 +96,63 @@ if __name__ == "__main__":
 
         y_val_bin = label_binarize(y_val, classes=range(len(classes)))
 
-        auc = roc_auc_score(y_val_bin, y_val_prob, multi_class="ovo", average="macro")
-        auc_scores.append(auc)
+        fold_auc = roc_auc_score(y_val_bin, y_val_prob, multi_class="ovo", average="macro")
+        auc_scores.append(fold_auc)
 
     print("AUC scores per fold:", auc_scores)
     print("Mean AUC:", np.mean(auc_scores))
-    print("Std AUC:", np.std(auc_scores))
+    print("Standard Deviation of AUC:", np.std(auc_scores))
 
     rf.fit(X_train, y_train)
     y_test_prob = rf.predict_proba(X_test)
+    import seaborn as sns
+
+    # Convert probabilities to a DataFrame for easier plotting
+    prob_df = pd.DataFrame(y_test_prob, columns=classes)
+
+    plt.figure(figsize=(12, 6))
+    sns.heatmap(prob_df.iloc[:50], cmap="viridis", annot=False)
+    plt.title("Heatmap of Predicted Probabilities (First 50 Samples)")
+    plt.xlabel("Emotion Class")
+    plt.ylabel("Sample Index")
+    plt.tight_layout()
+    plt.show()  
 
     y_test_bin = label_binarize(y_test, classes=range(len(classes)))
     test_auc = roc_auc_score(y_test_bin, y_test_prob, multi_class="ovo", average="macro")
     print("Final Test AUC:", test_auc)
+
+    fpr = {}
+    tpr = {}
+    roc_auc = {}
+
+    n_classes = len(classes)
+
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_test_bin[:, i], y_test_prob[:, i])
+        if len(fpr[i]) == 0 or len(tpr[i]) == 0:
+            print(f"Skipping class '{classes[i]}' — no positive samples in test set.")
+            continue
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    plt.figure(figsize=(10, 7))
+
+    for i in range(n_classes):
+        plt.plot(
+            fpr[i],
+            tpr[i],
+            label=f"Class {classes[i]} (AUC = {roc_auc[i]:.3f})"
+    )
+
+    plt.plot([0, 1], [0, 1], "k--", label="Random Guess")
+
+    plt.title("Multi-Class ROC Curve (One-vs-Rest)")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend(loc="lower right")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
     bundle = {
         "model": rf,
