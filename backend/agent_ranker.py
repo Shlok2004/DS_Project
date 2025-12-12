@@ -1,24 +1,21 @@
 import json
-import torchaudio
 import whisper
-import os
-import agent_preprocessing
 from langchain_mistralai import ChatMistralAI
 from langchain.agents import create_agent
 from langchain.tools import tool
-from os import getenv
+from os import getenv, listdir
 from dotenv import load_dotenv
 
 load_dotenv()
 print("MISTRAL API Key Exists:", getenv("MISTRAL_API_KEY"))
 
-# TRANSCRIBE AUDIO TOOL
+# DEFINE WHISPER TRANSCRIBER INSTANCE FOR TOOL
 transcriber = whisper.load_model("base")
 
 @tool
 def get_transcription():
     """Transcribe audio and return text"""
-    result = transcriber.transcribe("agent_outputs/processed.wav")
+    result = transcriber.transcribe(f"temp_audio_path/{listdir('temp_audio_path')[0]}")
     return result['text']
 
 full_transcript = ""
@@ -44,7 +41,7 @@ agent = create_agent(
     system_prompt = "You are an AI assistant that will use tools supporting a triage system. Always use the tool get_transcription(audio_path: str) when audio needs to be transcribed. Always use extract_info(transcript: str, json_object: str) to set the transcription and JSON object variables. Follow all rules carefully.",
 )
 
-# PARSE JSON & CALCULATE SEVERITY RANK
+# PARSE JSON & CALCULATE SEVERITY RANK FROM BELOW RANKINGS
 event_ranks = {
     "shooting": 5,
     "stabbing": 4,
@@ -84,6 +81,7 @@ injury_ranks = {
     "unknown": 0
 }
 
+# PRIORITY FEATURE BASED WEIGHTS 
 weights = {
     'event': 0.3,
     'victims': 0.15,
@@ -116,8 +114,7 @@ def calculate_severity():
         (ongoing_sev * weights['ongoing'])), 2)
 
 # RETURN ALL CONTEXT INFO FOR DB
-def get_context_info():
-    global full_transcript, triage_json
+def get_context_info(full_transcript, triage_json):
     triage_dict = json.loads(triage_json)
     return {
         "transcript": full_transcript,
@@ -125,14 +122,9 @@ def get_context_info():
         "severity_score": calculate_severity()
     }
 
-# RUN AGENT AND PROCESS TRANSCRIPT FOR FRONTEND
-def run_agent(file: str):
+# RUN AGENT AND PROCESS TRANSCRIPT (JSON) FOR FRONTEND
+def run_agent():
 
-    # APPLY PREPROCESSING
-    processed_audio = agent_preprocessing.pipeline(file)
-    torchaudio.save(os.path.join("agent_outputs", "processed.wav"), processed_audio, 16000)
-
-    # PROMPT AGENT & OUTPUT JSON
     response = agent.invoke({
         'messages': [
             {
@@ -172,4 +164,7 @@ def run_agent(file: str):
     print("Full Transcript:", full_transcript)
     print("Triage JSON:", triage_json)
     print("Severity:", calculate_severity())
-    return get_context_info()
+    return get_context_info(full_transcript, triage_json)
+
+# print(f"temp_audio_path/{listdir('temp_audio_path')[0]}")
+# run_agent()

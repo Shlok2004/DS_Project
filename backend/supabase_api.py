@@ -17,7 +17,7 @@ def set_connection(new_connection: psycopg.Connection):
     global connection
     connection = new_connection
 
-# SCHEMAS
+# DATA VALIDATION SCHEMAS
 class KeyDetails(BaseModel):
     event: str = ""
     victims: int = 0
@@ -31,9 +31,6 @@ class TableEntry(BaseModel):
     key_details: KeyDetails = Field(default_factory = KeyDetails)
     is_active: bool = True
     emotions: str = ""
-
-class RecordID(BaseModel):
-    id: int
 
 # POST (ADD FULL RECORD)
 def new_record(connection: psycopg.Connection, values: dict):
@@ -56,20 +53,13 @@ async def add_new_call(call: TableEntry):
     if connection is None:
         raise HTTPException(status_code = 503, detail = "No database connection")
     try:
-        new_id = await run_in_threadpool(
-            new_record,
-            connection,
-            call.model_dump()
-        )
-        return new_id
+        return await run_in_threadpool(new_record, connection, call.model_dump())
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Insertion failed: {e}")
     
 # GET (ALL ACTIVE RECORDS)
 def records_by_active(connection: psycopg.Connection, is_active: bool):
-    query = """
-        select * from call_severities where is_active = %(is_active)s;
-    """
+    query = """select * from call_severities where is_active = %(is_active)s;"""
     clean_json_recs = []
 
     with connection.cursor(row_factory = psycopg.rows.dict_row) as curs:

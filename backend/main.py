@@ -34,7 +34,7 @@ app = FastAPI(
     lifespan = lifespan
 )
 
-# UNRESTRICT LOCALHOST CONNECTIONS
+# UNRESTRICT LOCALHOST FRONTEND CONNECTIONS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,7 +43,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# INCLUDE API ENPOINT ROUTERS
 app.include_router(agent_router)
 app.include_router(voice_router)
 app.include_router(supabase_router)
