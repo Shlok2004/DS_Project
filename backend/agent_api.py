@@ -12,16 +12,16 @@ router = APIRouter(
 
 # DATA VALIDATION SCHEMAS
 class TriageJSON(BaseModel):
-    event: str
-    victims: int
-    injuries: str
-    weapon: str
-    ongoing_threat: str
+    event: str = ""
+    victims: int = 1
+    injuries: str = ""
+    weapon: str = ""
+    ongoing_threat: str = ""
 
 class DetailsJSON(BaseModel):
-    transcript: str
+    transcript: str = ""
     triage_data: TriageJSON
-    severity_score: float
+    severity_score: float = 0.0
 
 @router.post("/generate_json/", response_model = DetailsJSON, summary = "Generate Triage JSON from an added Audio File")
 async def generate_json(audio: UploadFile = File(...)):
